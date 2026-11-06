@@ -1,0 +1,41 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ---- 环境变量（绝对不能提交）----
+.env
+.env.*
+!.env.example
+
+# ---- 数据 ----
+# 数据目录整体忽略，但保留一个小样例，让 clone 下来的人能跑
+data/*
+!data/sample/
+
+# ---- 本地产物 ----
+*.db
+*.sqlite3
+logs/
+*.log
+
+# ---- 评测产物（评测集要留，跑出来的结果不留）----
+eval/results/
+
+# ---- 测试 / 覆盖率 ----
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
