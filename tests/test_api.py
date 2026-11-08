@@ -11,6 +11,15 @@ def test_healthz():
     assert resp.json()["status"] == "ok"
 
 
+def test_index_renders():
+    """首页必须是零外部依赖的，否则国内网络下会白屏。"""
+    with TestClient(app) as client:
+        resp = client.get("/")
+    assert resp.status_code == 200
+    assert "campus-kb-agent" in resp.text
+    assert "cdn." not in resp.text
+
+
 def test_ask_rejects_empty_question():
     with TestClient(app) as client:
         resp = client.post("/ask", json={"question": ""})
