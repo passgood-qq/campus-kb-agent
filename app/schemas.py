@@ -12,7 +12,8 @@ class Source(BaseModel):
     title: str
     page_no: int | None = None
     chunk_index: int
-    score: float = Field(description="余弦相似度，0~1")
+    score: float = Field(description="向量余弦相似度；关键词召回的片段为 0")
+    retrieved_by: str = Field(default="", description="vector / keyword / both")
     snippet: str = Field(description="片段前 120 字")
 
 

@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "description": "campus-kb-agent 评测集：50 条，含 20% 负样本",
+    "corpus": ["南昌大学科学技术学院学生手册", "Python 基础教程", "C++语言程序设计", "数据库原理与应用", "java基础入门", "what_is_rag"],
+    "judge": "关键词匹配（确定性判分，不引入 LLM 评委）",
+    "categories": {
+      "single": "单跳：答案在同一段资料里",
+      "multi": "多跳：需要跨两份文档",
+      "negative": "负样本：资料里没有答案，应拒答"
+    }
+  },
+  "cases": [
+    {"id": 1,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "一等奖学金的金额是多少？", "must_contain": ["2000"]},
+    {"id": 2,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "一等奖学金的评定比例是多少？", "must_contain": ["5%"]},
+    {"id": 3,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "补考成绩按多少分记载？", "must_contain": ["60"]},
+    {"id": 4,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "考试作弊会受到什么处分？", "must_contain": ["记过"]},
+    {"id": 5,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "旷课达到多少会取消考试资格？", "must_contain": ["三分之一"]},
+    {"id": 6,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "请假三天以内由谁批准？", "must_contain": ["辅导员"]},
+    {"id": 7,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "不及格学分累计多少会给予学业预警？", "must_contain": ["10"]},
+    {"id": 8,  "doc": "南昌大学科学技术学院学生手册", "category": "single", "answerable": true, "question": "不及格学分累计多少会被退学？", "must_contain": ["30"]},
+
+    {"id": 9,  "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "列表作为函数默认参数会有什么问题？", "must_contain": ["一次"]},
+    {"id": 10, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "Python 里做深拷贝用哪个函数？", "must_contain": ["deepcopy"]},
+    {"id": 11, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "Python 的作用域规则缩写是什么？", "must_contain": ["LEGB"]},
+    {"id": 12, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "读写文件时用什么语句可以自动关闭文件？", "must_contain": ["with"]},
+    {"id": 13, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "怎么创建 Python 虚拟环境？", "must_contain": ["venv"]},
+    {"id": 14, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "Python 的字符串是可变的还是不可变的？", "must_contain": ["不可变"]},
+    {"id": 15, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "for 循环里的 else 子句什么时候执行？", "must_contain": ["break"]},
+    {"id": 16, "doc": "Python 基础教程", "category": "single", "answerable": true, "question": "捕获异常时为什么不应该用裸 except？", "must_contain": ["KeyboardInterrupt"]},
+
+    {"id": 17, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "C++ 中 double 占几个字节？", "must_contain": ["8"]},
+    {"id": 18, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "为什么基类的析构函数要声明为 virtual？", "must_contain": ["泄漏"]},
+    {"id": 19, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "unique_ptr 可以被拷贝吗？", "must_contain": ["独占"]},
+    {"id": 20, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "std::map 的查找时间复杂度是多少？", "must_contain": ["log"]},
+    {"id": 21, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "C++ 从源码到可执行文件要经过哪几个阶段？", "must_contain": ["预处理", "编译", "链接"]},
+    {"id": 22, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "为什么模板的定义通常要放在头文件里？", "must_contain": ["实例化"]},
+    {"id": 23, "doc": "C++语言程序设计", "category": "single", "answerable": true, "question": "RAII 是什么意思？", "must_contain": ["生命周期"]},
+
+    {"id": 24, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "数据库的三级模式分别是什么？", "must_contain": ["外模式", "概念模式", "内模式"]},
+    {"id": 25, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "候选键的定义是什么？", "must_contain": ["最小超键"]},
+    {"id": 26, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "WHERE 和 HAVING 有什么区别？", "must_contain": ["分组"]},
+    {"id": 27, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "脏读是什么意思？", "must_contain": ["未提交"]},
+    {"id": 28, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "事务的 ACID 分别指什么？", "must_contain": ["原子性", "一致性", "隔离性", "持久性"]},
+    {"id": 29, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "一张表可以有多个聚簇索引吗？", "must_contain": ["一个"]},
+    {"id": 30, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "B+ 树的叶子节点有什么特点？", "must_contain": ["链表"]},
+    {"id": 31, "doc": "数据库原理与应用", "category": "single", "answerable": true, "question": "第一范式要求什么？", "must_contain": ["不可再分"]},
+
+    {"id": 32, "doc": "java基础入门", "category": "single", "answerable": true, "question": "Integer 缓存的范围是多少？", "must_contain": ["128", "127"]},
+    {"id": 33, "doc": "java基础入门", "category": "single", "answerable": true, "question": "Java 中 int 占几个字节？", "must_contain": ["4"]},
+    {"id": 34, "doc": "java基础入门", "category": "single", "answerable": true, "question": "字符串频繁拼接应该用什么类？", "must_contain": ["StringBuilder"]},
+    {"id": 35, "doc": "java基础入门", "category": "single", "answerable": true, "question": "HashMap 中链表长度超过多少会转成红黑树？", "must_contain": ["8"]},
+    {"id": 36, "doc": "java基础入门", "category": "single", "answerable": true, "question": "受检异常举个例子？", "must_contain": ["IOException"]},
+    {"id": 37, "doc": "java基础入门", "category": "single", "answerable": true, "question": "volatile 关键字保证什么？", "must_contain": ["可见性"]},
+    {"id": 38, "doc": "java基础入门", "category": "single", "answerable": true, "question": "接口的 default 方法是哪个版本引入的？", "must_contain": ["8"]},
+    {"id": 39, "doc": "java基础入门", "category": "single", "answerable": true, "question": "Java 创建线程有哪两种方式？", "must_contain": ["Thread", "Runnable"]},
+
+    {"id": 40, "doc": "what_is_rag", "category": "single", "answerable": true, "question": "什么是 RAG？", "must_contain": ["检索", "增强"]},
+    {"id": 41, "doc": "what_is_rag", "category": "single", "answerable": true, "question": "RAG 主要解决了什么问题？", "must_contain": ["幻觉"]},
+    {"id": 42, "doc": "what_is_rag", "category": "single", "answerable": true, "question": "RAG 的工作流程大概是怎样的？", "must_contain": ["向量"]},
+
+    {"id": 43, "doc": null, "category": "multi", "answerable": true, "question": "Python 和 Java 的字符串都是不可变的吗？", "must_contain": ["不可变"]},
+    {"id": 44, "doc": null, "category": "multi", "answerable": true, "question": "C++ 的指针和 Java 的引用有什么区别？", "must_contain": ["指针"]},
+    {"id": 45, "doc": null, "category": "multi", "answerable": true, "question": "数据库的锁和 Java 的 synchronized 都是为了解决什么问题？", "must_contain": ["并发"]},
+
+    {"id": 46, "doc": null, "category": "negative", "answerable": false, "question": "南昌大学科学技术学院的校长是谁？", "must_contain": []},
+    {"id": 47, "doc": null, "category": "negative", "answerable": false, "question": "学校图书馆每天几点开门？", "must_contain": []},
+    {"id": 48, "doc": null, "category": "negative", "answerable": false, "question": "Python 的 GIL 是什么？", "must_contain": []},
+    {"id": 49, "doc": null, "category": "negative", "answerable": false, "question": "学校食堂一共有几层？", "must_contain": []},
+    {"id": 50, "doc": null, "category": "negative", "answerable": false, "question": "C++ 中 std::async 怎么用？", "must_contain": []}
+  ]
+}

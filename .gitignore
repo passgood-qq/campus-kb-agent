@@ -27,3 +27,7 @@ Thumbs.db
 _pgctl.*
 uvicorn.*.log
 
+
+# 评测产物（用例要留，结果不留）
+eval/results/
+

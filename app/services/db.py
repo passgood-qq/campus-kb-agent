@@ -1,7 +1,9 @@
 """数据库连接池与数据访问。
 
-关键设计：连接池懒加载。
-启动时数据库不可用不应该让服务永久残废 —— 之后数据库起来了，下一次请求应能自动连上。
+关键设计：
+  1. 连接池懒加载 —— 启动时数据库不可用不该让服务永久残废
+  2. 混合检索 —— 向量召回 + 关键词召回，用 RRF 融合
+     纯向量对代码标识符（WHERE / unique_ptr / 3NF）不敏感，必须有关键词这一路兜底
 """
 import logging
 import threading
@@ -15,6 +17,8 @@ log = logging.getLogger("app.db")
 
 _pool: pool.SimpleConnectionPool | None = None
 _lock = threading.Lock()
+
+RRF_K = 60  # RRF 常数，业界常用 60
 
 
 def _build_pool() -> pool.SimpleConnectionPool | None:
@@ -39,7 +43,6 @@ def init_pool() -> None:
 
 
 def get_pool() -> pool.SimpleConnectionPool | None:
-    """取连接池；之前失败过则在这里重试一次。"""
     global _pool
     if _pool is not None:
         return _pool
@@ -61,14 +64,7 @@ def is_ready() -> bool:
     return get_pool() is not None
 
 
-def save_query(
-    question: str,
-    answer: str,
-    latency_ms: int,
-    token_in: int,
-    token_out: int,
-    status: str = "ok",
-) -> int:
+def save_query(question, answer, latency_ms, token_in, token_out, status="ok") -> int:
     p = get_pool()
     if p is None:
         raise RuntimeError("数据库不可用")
@@ -89,9 +85,22 @@ def save_query(
 
 # ---------------------------------------------------------------- 文档与片段
 
+_SELECT_COLS = """
+    c.id            AS chunk_id,
+    c.document_id   AS document_id,
+    d.title         AS title,
+    c.chunk_index   AS chunk_index,
+    c.content       AS content,
+    c.page_no       AS page_no
+"""
 
-def upsert_document(title: str, source_path: str, file_type: str, content_hash: str) -> int:
-    """按 content_hash 去重：同一份文件重复灌库不会产生第二份文档。"""
+_FROM_JOIN = """
+      FROM chunks c
+      JOIN documents d ON d.id = c.document_id
+"""
+
+
+def upsert_document(title, source_path, file_type, content_hash) -> int:
     p = get_pool()
     if p is None:
         raise RuntimeError("数据库不可用")
@@ -112,7 +121,6 @@ def upsert_document(title: str, source_path: str, file_type: str, content_hash: 
 
 
 def replace_chunks(document_id: int, rows: list[dict]) -> int:
-    """整篇替换：先删旧片段再插新的，保证重复灌库不会残留脏数据。"""
     p = get_pool()
     if p is None:
         raise RuntimeError("数据库不可用")
@@ -125,14 +133,8 @@ def replace_chunks(document_id: int, rows: list[dict]) -> int:
                     """INSERT INTO chunks
                            (document_id, chunk_index, content, page_no, token_count, embedding)
                        VALUES (%s, %s, %s, %s, %s, %s::vector)""",
-                    (
-                        document_id,
-                        r["chunk_index"],
-                        r["content"],
-                        r.get("page_no"),
-                        r.get("token_count"),
-                        r["embedding"],
-                    ),
+                    (document_id, r["chunk_index"], r["content"], r.get("page_no"),
+                     r.get("token_count"), r["embedding"]),
                 )
             cur.execute(
                 "UPDATE documents SET status = 'indexed', updated_at = now() WHERE id = %s",
@@ -143,37 +145,88 @@ def replace_chunks(document_id: int, rows: list[dict]) -> int:
         p.putconn(conn)
 
 
-def search_chunks(query_vector: str, k: int = 4) -> list[dict]:
-    """按余弦相似度取 top-k 片段，带出文档标题和页码用于标注出处。"""
+def _fetch_dicts(cur, rows_needed=None) -> list[dict]:
+    cols = [d[0] for d in cur.description]
+    return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+
+def _vector_search_with_score(cur, query_vector: str, limit: int) -> list[dict]:
+    cur.execute(
+        f"""SELECT {_SELECT_COLS},
+                   1 - (c.embedding <=> %s::vector) AS score
+             {_FROM_JOIN}
+             WHERE c.embedding IS NOT NULL
+             ORDER BY c.embedding <=> %s::vector
+             LIMIT %s""",
+        (query_vector, query_vector, limit),
+    )
+    return _fetch_dicts(cur)
+
+
+def _keyword_search(cur, terms: list[str], limit: int) -> list[dict]:
+    """把问题里的英文标识符拿出来做 ILIKE 匹配，命中越多排越前。"""
+    if not terms:
+        return []
+    patterns = [f"%{t}%" for t in terms]
+    hit_expr = " + ".join(["(CASE WHEN c.content ILIKE %s THEN 1 ELSE 0 END)"] * len(patterns))
+    where_expr = " OR ".join(["c.content ILIKE %s"] * len(patterns))
+    cur.execute(
+        f"""SELECT {_SELECT_COLS},
+                    0.0 AS score,
+                    ({hit_expr}) AS kw_hits
+             {_FROM_JOIN}
+             WHERE ({where_expr})
+             ORDER BY kw_hits DESC, length(c.content) ASC
+             LIMIT %s""",
+        patterns + patterns + [limit],
+    )
+    return _fetch_dicts(cur)
+
+
+def search_chunks_hybrid(query_vector: str, terms: list[str], k: int = 5,
+                         pool_size: int = 20) -> list[dict]:
+    """向量 + 关键词两路召回，RRF 融合后取 top-k。"""
     p = get_pool()
     if p is None:
         raise RuntimeError("数据库不可用")
     conn = p.getconn()
     try:
         with conn, conn.cursor() as cur:
-            cur.execute(
-                """SELECT c.id            AS chunk_id,
-                          c.document_id   AS document_id,
-                          d.title         AS title,
-                          c.chunk_index   AS chunk_index,
-                          c.content       AS content,
-                          c.page_no       AS page_no,
-                          1 - (c.embedding <=> %s::vector) AS score
-                     FROM chunks c
-                     JOIN documents d ON d.id = c.document_id
-                    WHERE c.embedding IS NOT NULL
-                    ORDER BY c.embedding <=> %s::vector
-                    LIMIT %s""",
-                (query_vector, query_vector, k),
-            )
-            cols = [d[0] for d in cur.description]
-            return [dict(zip(cols, row)) for row in cur.fetchall()]
+            vec_rows = _vector_search_with_score(cur, query_vector, pool_size)
+            kw_rows = _keyword_search(cur, terms, pool_size)
     finally:
         p.putconn(conn)
 
+    fused: dict[int, dict] = {}
+    sources: dict[int, set] = {}
+
+    def _merge(rows, tag):
+        for rank, r in enumerate(rows, start=1):
+            cid = r["chunk_id"]
+            if cid not in fused:
+                fused[cid] = dict(r)
+                fused[cid]["rrf"] = 0.0
+                sources[cid] = set()
+            # 保留向量相似度用于展示（关键词那路没有真实相似度）
+            if tag == "vector":
+                fused[cid]["score"] = float(r.get("score") or 0.0)
+            fused[cid]["rrf"] += 1.0 / (RRF_K + rank)
+            sources[cid].add(tag)
+
+    _merge(vec_rows, "vector")
+    _merge(kw_rows, "keyword")
+
+    ranked = sorted(fused.values(), key=lambda x: x["rrf"], reverse=True)[:k]
+    for r in ranked:
+        tags = sources[r["chunk_id"]]
+        r["retrieved_by"] = "both" if len(tags) == 2 else next(iter(tags))
+        r["rrf"] = round(r["rrf"], 6)
+        r.pop("kw_hits", None)
+    log.info("混合检索 vector=%d keyword=%d 融合后=%d", len(vec_rows), len(kw_rows), len(ranked))
+    return ranked
+
 
 def counts() -> dict:
-    """给统计用：文档数、片段数、带向量的片段数。"""
     p = get_pool()
     if p is None:
         raise RuntimeError("数据库不可用")
