@@ -23,21 +23,28 @@
 
 ### 1. 准备数据库
 
-需要 PostgreSQL 16+。
+需要 PostgreSQL 16+ **并安装 pgvector 扩展**。
 
 ```bash
 createdb campus_kb
 psql -d campus_kb -f db/schema.sql
+psql -d campus_kb -f db/migrations/002_chunks_embedding.sql
 ```
 
 ### 2. 配置并安装依赖
 
 ```bash
-cp .env.example .env          # 填入 LLM_API_KEY，并让 DATABASE_URL 指向你的库
+cp .env.example .env          # 填 LLM / Embedding 的 API Key，并让 DATABASE_URL 指向你的库
 pip install -r requirements.txt
 ```
 
-### 3. 启动服务
+### 3. 灌库（切分 + 向量化）
+
+```bash
+python scripts/ingest.py      # 读 data/docs 下的 txt/md → 切分 → embedding → 写进 chunks
+```
+
+### 4. 启动服务
 
 ```bash
 python -m uvicorn app.main:app --port 8000
@@ -45,12 +52,6 @@ python -m uvicorn app.main:app --port 8000
 
 - 交互页面：<http://127.0.0.1:8000/>
 - 接口文档：<http://127.0.0.1:8000/docs>
-
-### 4. 或直接跑端到端脚本
-
-```bash
-python scripts/doc_pipeline.py
-```
 
 ---
 
@@ -66,11 +67,21 @@ python scripts/doc_pipeline.py
 
 ```json
 {
-  "answer": "RAG（检索增强生成）是一种……",
-  "latency_ms": 4958,
-  "token_in": 89,
-  "token_out": 183,
-  "query_id": 3
+  "answer": "RAG（检索增强生成）是一种…… [1]",
+  "sources": [
+    {
+      "index": 1,
+      "title": "what_is_rag",
+      "page_no": null,
+      "chunk_index": 0,
+      "score": 0.6455,
+      "snippet": "什么是 RAG？RAG（检索增强生成）是一种……"
+    }
+  ],
+  "latency_ms": 8381,
+  "token_in": 358,
+  "token_out": 509,
+  "query_id": 8
 }
 ```
 
@@ -131,7 +142,7 @@ python scripts/doc_pipeline.py
 - [x] D5 端到端管线：读文档 → 调模型 → 存库
 - [x] D6 日志与异常处理（退出码分级、超时重试）
 - [x] 第 1 周 FastAPI 服务化：`/ask`、`/healthz`、首页、4 个测试
-- [ ] 文档切分 + 向量检索（`chunks` 表目前是空的）
+- [x] 第 2 周 文档切分 + 向量检索：pgvector 0.8.7 + HNSW，答案带出处
 - [ ] 评测集 50 条 + 评测脚本
 - [ ] 部署到公网
 

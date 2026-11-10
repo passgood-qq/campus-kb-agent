@@ -12,10 +12,22 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # 生成模型
     llm_api_key: str = ""
     llm_base_url: str = "https://api.deepseek.com/v1"
     llm_model: str = "deepseek-chat"
     llm_timeout: float = 30.0
+
+    # 向量模型
+    embedding_api_key: str = ""
+    embedding_base_url: str = "https://api.siliconflow.cn/v1"
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_dim: int = 1024
+
+    # 检索与切分
+    retrieval_top_k: int = 4
+    chunk_size: int = 500
+    chunk_overlap: int = 50
 
     database_url: str = ""
     app_port: int = 8000

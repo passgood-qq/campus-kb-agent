@@ -43,6 +43,7 @@ INDEX_HTML = """<!doctype html>
 <button id="go" onclick="ask()">提问</button>
 <div id="out"></div>
 <div id="meta"></div>
+<div id="src"></div>
 <script>
 async function ask(){
   var q = document.getElementById('q').value.trim();
@@ -51,6 +52,7 @@ async function ask(){
   btn.disabled = true;
   document.getElementById('out').textContent = '思考中…';
   document.getElementById('meta').textContent = '';
+  document.getElementById('src').innerHTML = '';
   try{
     var r = await fetch('/ask', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({question: q})});
     var d = await r.json();
@@ -60,12 +62,28 @@ async function ask(){
       document.getElementById('out').textContent = d.answer;
       document.getElementById('meta').textContent =
         '耗时 ' + d.latency_ms + ' ms · token ' + d.token_in + '/' + d.token_out + ' · 记录 #' + d.query_id;
+      renderSources(d.sources || []);
     }
   } catch(e){
     document.getElementById('out').textContent = '网络错误：' + e;
   } finally {
     btn.disabled = false;
   }
+}
+
+function renderSources(list){
+  var box = document.getElementById('src');
+  if(!list || !list.length){ box.innerHTML = ''; return; }
+  var html = '<div style="margin-top:18px;font-size:13px;color:#656d76">出处</div>';
+  list.forEach(function(s){
+    var page = s.page_no ? (' · 第 ' + s.page_no + ' 页') : '';
+    html += '<div style="margin-top:8px;padding-left:10px;border-left:3px solid #d0d7de">'
+         +  '<div style="font-size:13px;color:#1f2328">[' + s.index + '] 《' + s.title + '》' + page
+         +  ' <span style="color:#656d76">相似度 ' + Number(s.score).toFixed(3) + '</span></div>'
+         +  '<div style="font-size:13px;color:#656d76;margin-top:2px">' + s.snippet + '…</div>'
+         +  '</div>';
+  });
+  box.innerHTML = html;
 }
 </script>
 </body>
