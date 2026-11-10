@@ -2,6 +2,8 @@
 
 > 把散在群文件和网盘里的课程资料，变成一个能直接问的助手。
 
+[![CI](https://github.com/passgood-qq/campus-kb-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/passgood-qq/campus-kb-agent/actions/workflows/ci.yml)
+
 **状态**：开发中（WIP）· 2027 届春招项目
 
 ![首页截图](docs/screenshot.png)
