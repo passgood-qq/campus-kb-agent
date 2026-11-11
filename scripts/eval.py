@@ -72,7 +72,10 @@ def main() -> int:
     rows = []
     for i, case in enumerate(cases, start=1):
         try:
-            answer, sources, tin, tout, latency = retrieval.answer(case["question"])
+            res = retrieval.answer(case["question"])
+            answer, sources, tin, tout, latency = (
+                res.answer, res.sources, res.token_in, res.token_out, res.latency_ms
+            )
             ok = judge_answer(case, answer)
             r_ok = judge_retrieval(case, sources)
             rows.append({
@@ -81,6 +84,7 @@ def main() -> int:
                 "question": case["question"],
                 "answer": answer,
                 "sources": [s["title"] for s in sources],
+                "status": res.status,
                 "answer_ok": ok,
                 "retrieval_ok": r_ok,
                 "latency_ms": latency,

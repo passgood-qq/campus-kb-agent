@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse
 
 from app.api.routes import router
 from app.config import get_settings
-from app.services import db
+from app.services import db, llm
 
 log = logging.getLogger("app")
 
@@ -61,7 +61,8 @@ async function ask(){
     } else {
       document.getElementById('out').textContent = d.answer;
       document.getElementById('meta').textContent =
-        '耗时 ' + d.latency_ms + ' ms · token ' + d.token_in + '/' + d.token_out + ' · 记录 #' + d.query_id;
+        '耗时 ' + d.latency_ms + ' ms · token ' + d.token_in + '/' + d.token_out + ' · 记录 #' + d.query_id
+        + (d.status === 'degraded' ? ' · 模型不可用，已降级为原文摘录' : '');
       renderSources(d.sources || []);
     }
   } catch(e){
@@ -99,6 +100,10 @@ async def lifespan(_: FastAPI):
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     db.init_pool()
+    llm.configure_breaker(
+        settings.breaker_failure_threshold,
+        settings.breaker_recovery_seconds,
+    )
     log.info("服务启动完成")
     yield
     db.close_pool()

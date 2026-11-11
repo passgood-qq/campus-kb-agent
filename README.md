@@ -152,6 +152,31 @@ v2 按类别：单跳 42/42、多跳 2/3、负样本 5/5。
 
 ---
 
+## 可靠性设计
+
+外部模型是最大的不稳定源，所以做了四件事：
+
+| 机制 | 做法 | 故障注入实测 |
+|---|---|---|
+| 超时 | 单次调用 30s 超时 | 不会无限挂起 |
+| 重试 | 指数退避 0.5s → 1s，最多 2 次 | 偶发失败自动恢复 |
+| 熔断 | 连续失败 3 次打开，30s 后半开探测 | 故障期请求耗时 668ms → **171ms** |
+| 降级 | 模型不可用时返回检索原文，`status=degraded` | HTTP 仍返回 200，不白屏 |
+
+`python scripts/demo_degrade.py` 可复现整条链路（注入点是真的让 SDK 调用抛错）：
+
+```
+正常      status=ok        熔断器=closed
+故障 x1   status=degraded  熔断器=closed  failures=1   823ms
+故障 x2   status=degraded  熔断器=closed  failures=2   720ms
+故障 x3   status=degraded  熔断器=open    failures=3   668ms
+故障 x4   status=degraded  熔断器=open                171ms   ← 快速失败，不再重试
+```
+
+单元测试覆盖熔断器状态机、退避间隔序列与降级文案（不依赖数据库和真实模型）。
+
+---
+
 ## 数据与隐私
 
 - **语料**：公开教材与课程课件

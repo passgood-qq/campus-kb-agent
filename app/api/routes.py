@@ -13,17 +13,20 @@ router = APIRouter()
 
 @router.get("/healthz", response_model=HealthResponse, tags=["system"])
 def healthz() -> HealthResponse:
-    """存活探针：同时报出数据库里的资料规模，方便确认是否已灌库。"""
+    """存活探针：同时报出数据库状态、资料规模与熔断器状态。"""
     ready = db.is_ready()
     stats: dict | None = None
     if ready:
         try:
             stats = db.counts()
-        except Exception:  # 统计失败不影响健康判定
+        except Exception:
             log.warning("统计查询失败", exc_info=True)
+
+    breaker = llm.get_breaker()
     return HealthResponse(
         status="ok",
         db="up" if ready else "down",
+        llm=breaker.state.value,
         documents=(stats or {}).get("documents"),
         chunks=(stats or {}).get("chunks"),
     )
@@ -32,7 +35,7 @@ def healthz() -> HealthResponse:
 @router.post("/ask", response_model=AskResponse, tags=["qa"])
 def ask(payload: AskRequest) -> AskResponse:
     try:
-        answer, sources, token_in, token_out, latency_ms = retrieval.answer(payload.question)
+        result = retrieval.answer(payload.question)
     except embeddings.EmbeddingError as exc:
         log.error("向量化失败：%s", exc)
         raise HTTPException(status_code=502, detail=f"检索服务不可用：{exc}") from exc
@@ -44,16 +47,20 @@ def ask(payload: AskRequest) -> AskResponse:
         raise HTTPException(status_code=503, detail=f"数据库不可用：{exc}") from exc
 
     try:
-        query_id = db.save_query(payload.question, answer, latency_ms, token_in, token_out)
+        query_id = db.save_query(
+            payload.question, result.answer, result.latency_ms,
+            result.token_in, result.token_out, status=result.status,
+        )
     except Exception as exc:
         log.exception("写入 queries 失败")
         raise HTTPException(status_code=500, detail="答案已生成，但记录落库失败") from exc
 
     return AskResponse(
-        answer=answer,
-        sources=sources,
-        latency_ms=latency_ms,
-        token_in=token_in,
-        token_out=token_out,
+        answer=result.answer,
+        sources=result.sources,
+        status=result.status,
+        latency_ms=result.latency_ms,
+        token_in=result.token_in,
+        token_out=result.token_out,
         query_id=query_id,
     )

@@ -1,17 +1,21 @@
 """检索增强问答：混合检索 → 拼 prompt → 生成答案 → 返回出处。
 
-为什么要混合检索：
-  纯向量检索对代码标识符（WHERE / HAVING / unique_ptr / 3NF）不敏感。
-  评测里「WHERE 和 HAVING 有什么区别」曾完全召不回数据库文档，
-  加上关键词召回并用 RRF 融合后解决。
+降级策略：
+  模型不可用（熔断打开）时，不报错，直接返回检索到的资料原文，status="degraded"。
+  这比返回 502 更有用 —— 用户至少能看到"资料里写了什么"。
 """
 import logging
 import re
+from collections import namedtuple
 
 from app.config import get_settings
 from app.services import db, embeddings, llm
 
 log = logging.getLogger("app.retrieval")
+
+AnswerResult = namedtuple(
+    "AnswerResult", "answer sources token_in token_out latency_ms status"
+)
 
 PROMPT_TMPL = """你是课程资料助手。只能依据下面提供的资料回答。
 
@@ -59,8 +63,18 @@ def _format_context(hits: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def answer(question: str) -> tuple[str, list[dict], int, int, int]:
-    """返回 (答案, 出处列表, token_in, token_out, latency_ms)。"""
+def _degraded_answer(hits: list[dict]) -> str:
+    """模型不可用时的兜底：直接把检索到的原文摘录给用户。"""
+    if not hits:
+        return "模型服务当前不可用，且资料库没有检索到相关内容。"
+    lines = ["（模型服务暂时不可用，以下为检索到的资料原文，仅供参考）"]
+    for i, h in enumerate(hits[:3], start=1):
+        page = f" 第 {h['page_no']} 页" if h["page_no"] else ""
+        lines.append(f"\n[{i}] 《{h['title']}》{page}\n{h['content'][:300]}")
+    return "".join(lines)
+
+
+def answer(question: str) -> AnswerResult:
     s = get_settings()
 
     vec = embeddings.embed_one(question)
@@ -69,7 +83,19 @@ def answer(question: str) -> tuple[str, list[dict], int, int, int]:
     log.info("检索完成 terms=%s hits=%d", terms, len(hits))
 
     prompt = PROMPT_TMPL.format(context=_format_context(hits), question=question)
-    answer_text, token_in, token_out, latency_ms = llm.ask(prompt)
+
+    status = "ok"
+    try:
+        answer_text, token_in, token_out, latency_ms = llm.ask(prompt)
+    except (llm.LLMUnavailable, llm.LLMError) as exc:
+        # 两种情况都降级，区别只在日志：
+        #   LLMUnavailable —— 熔断打开，压根没调，降级是"快速失败"
+        #   LLMError       —— 调了但重试耗尽，降级是"兜底"
+        kind = "熔断" if isinstance(exc, llm.LLMUnavailable) else "调用失败"
+        log.error("模型%s，切换降级：%s", kind, exc)
+        answer_text = _degraded_answer(hits)
+        token_in = token_out = latency_ms = 0
+        status = "degraded"
 
     sources = [
         {
@@ -83,4 +109,4 @@ def answer(question: str) -> tuple[str, list[dict], int, int, int]:
         }
         for i, h in enumerate(hits, start=1)
     ]
-    return answer_text, sources, token_in, token_out, latency_ms
+    return AnswerResult(answer_text, sources, token_in, token_out, latency_ms, status)

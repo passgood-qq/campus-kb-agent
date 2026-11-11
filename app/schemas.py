@@ -20,6 +20,7 @@ class Source(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: list[Source] = Field(default_factory=list)
+    status: str = Field(default="ok", description="ok / degraded（模型不可用已降级）")
     latency_ms: int
     token_in: int
     token_out: int
@@ -29,5 +30,6 @@ class AskResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     db: str
+    llm: str | None = Field(default=None, description="熔断器状态：closed / open / half_open")
     documents: int | None = None
     chunks: int | None = None
