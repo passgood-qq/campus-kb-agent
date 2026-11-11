@@ -1,26 +1,33 @@
 @echo off
-chcp 65001 > nul
+setlocal
 cd /d "%~dp0"
 
-echo ============================================
-echo  临时公网链接（Cloudflare Quick Tunnel）
-echo  免账号、免费，但：电脑关机即断，链接每次变
-echo ============================================
+echo ==========================================
+echo   Cloudflare Quick Tunnel
+echo   Free, no account needed.
+echo   PC must stay on. URL changes each run.
+echo ==========================================
 echo.
 
 if not exist "cloudflared.exe" (
-    echo 首次运行，正在下载 cloudflared ^(约 40MB^) ...
+    echo Downloading cloudflared ^(about 40MB^) ...
     curl -L -o cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
     if errorlevel 1 (
-        echo 下载失败，请检查网络后重试。
+        echo.
+        echo Download failed. Check your network and retry.
         pause
         exit /b 1
     )
+    echo Download complete.
 )
 
 echo.
-echo 请先确保服务已在 8000 端口运行（另开窗口跑 start.cmd）
-echo 按任意键开始建立隧道 ...
+echo Make sure the app is already running on port 8000
+echo   open another window and run start.cmd first
+echo.
+echo Press any key to start the tunnel ...
 pause > nul
 
 cloudflared.exe tunnel --url http://127.0.0.1:8000
+
+endlocal
