@@ -6,6 +6,9 @@
 
 **状态**：开发中（WIP）· 2027 届春招项目
 
+> **在线体验**：部署地址待填
+> 免费实例，首次访问需等待约 1 分钟冷启动。部署方式见 [`DEPLOY.md`](DEPLOY.md)
+
 ![首页截图](docs/screenshot.png)
 
 ---
@@ -43,7 +46,7 @@ pip install -r requirements.txt
 ### 3. 灌库（切分 + 向量化）
 
 ```bash
-python scripts/ingest.py      # 读 data/docs 下的 txt/md → 切分 → embedding → 写进 chunks
+python scripts/ingest.py      # 读 corpus/ 下的 txt/md → 切分 → embedding → 写进 chunks
 ```
 
 ### 4. 启动服务

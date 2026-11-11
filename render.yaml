@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: campus-kb-agent
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      # 以下全部在 Render 后台手动填，不写进仓库
+      - key: DATABASE_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: EMBEDDING_API_KEY
+        sync: false
+      - key: EMBEDDING_BASE_URL
+        sync: false
+      - key: EMBEDDING_MODEL
+        sync: false
+      - key: LOG_LEVEL
+        value: INFO

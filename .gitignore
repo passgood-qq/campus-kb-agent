@@ -31,3 +31,7 @@ uvicorn.*.log
 # 评测产物（用例要留，结果不留）
 eval/results/
 
+
+# 临时隧道工具
+cloudflared.exe
+

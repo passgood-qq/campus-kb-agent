@@ -125,7 +125,7 @@ def ingest_dir(doc_dir: Path) -> tuple[int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", default="data/docs", help="语料目录")
+    parser.add_argument("--dir", default="corpus", help="语料目录")
     args = parser.parse_args()
 
     doc_dir = Path(args.dir)
