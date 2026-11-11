@@ -24,6 +24,7 @@ from pathlib import Path
 # 直接运行脚本时，把项目根目录加进 sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.config import get_settings
 from app.services import retrieval
 
 logging.basicConfig(level="WARNING", format="%(levelname)s %(message)s")
@@ -53,6 +54,10 @@ def judge_retrieval(case: dict, sources: list[dict]) -> bool | None:
 
 
 def main() -> int:
+    # 评测必须可复现：把生成温度钉死为 0。
+    # 温度不为 0 时，同一套代码两次跑出的数字会差 2 个百分点 —— 那样的对比没有意义。
+    get_settings().llm_temperature = 0.0
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", default="eval/cases.json")
     parser.add_argument("--limit", type=int, default=0)

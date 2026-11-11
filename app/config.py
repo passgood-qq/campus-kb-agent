@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     llm_model: str = "deepseek-chat"
     llm_timeout: float = 30.0
     llm_max_attempts: int = 2          # 单次请求最多尝试几次（含首次）
+    llm_temperature: float = 0.3       # 评测时会被置为 0，保证可复现
     retry_base_delay: float = 0.5      # 指数退避基数：0.5s → 1s → 2s
 
     # 熔断

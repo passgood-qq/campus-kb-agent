@@ -40,16 +40,17 @@ def configure_breaker(failure_threshold: int, recovery_seconds: float) -> None:
     )
 
 
-def _call_once(client: OpenAI, model: str, prompt: str):
+def _call_once(client: OpenAI, model: str, prompt: str, temperature: float = 0.3):
     return client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
+        temperature=temperature,
     )
 
 
 def _call_with_retry(client: OpenAI, model: str, prompt: str,
-                     attempts: int, base_delay: float = 0.5, sleep=time.sleep):
+                     attempts: int, base_delay: float = 0.5, sleep=time.sleep,
+                     temperature: float = 0.3):
     """指数退避重试：0.5s → 1s → 2s …
 
     只对可恢复错误重试。参数化 sleep 是为了测试不必真的等。
@@ -57,7 +58,7 @@ def _call_with_retry(client: OpenAI, model: str, prompt: str,
     last_exc: Exception | None = None
     for i in range(max(1, attempts)):
         try:
-            return _call_once(client, model, prompt)
+            return _call_once(client, model, prompt, temperature)
         except Exception as exc:  # SDK 各类异常统一在此重试
             last_exc = exc
             if i == attempts - 1:
@@ -89,7 +90,8 @@ def ask(question: str) -> tuple[str, int, int, int]:
 
     started = time.perf_counter()
     try:
-        resp = _call_with_retry(client, s.llm_model, question, s.llm_max_attempts)
+        resp = _call_with_retry(client, s.llm_model, question, s.llm_max_attempts,
+                                base_delay=s.retry_base_delay, temperature=s.llm_temperature)
     except LLMError:
         breaker.record_failure()
         raise
