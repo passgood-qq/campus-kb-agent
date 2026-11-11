@@ -6,8 +6,9 @@
 
 **状态**：开发中（WIP）· 2027 届春招项目
 
-> **在线体验**：部署地址待填
-> 免费实例，首次访问需等待约 1 分钟冷启动。部署方式见 [`DEPLOY.md`](DEPLOY.md)
+> **在线体验**：<http://101.201.74.52/>
+> 部署在阿里云轻量应用服务器（2C1G），数据库用 Neon。若打不开可能是实例到期或关机。
+> 部署步骤见 [`DEPLOY.md`](DEPLOY.md) 与 [`DEPLOY-ALIYUN-FC.md`](DEPLOY-ALIYUN-FC.md)
 
 ![首页截图](docs/screenshot.png)
 
