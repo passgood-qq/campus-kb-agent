@@ -58,6 +58,7 @@ def ask(payload: AskRequest) -> AskResponse:
     return AskResponse(
         answer=result.answer,
         sources=result.sources,
+        tool_calls=result.tool_calls,
         status=result.status,
         latency_ms=result.latency_ms,
         token_in=result.token_in,

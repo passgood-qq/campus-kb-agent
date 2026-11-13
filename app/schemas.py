@@ -17,9 +17,17 @@ class Source(BaseModel):
     snippet: str = Field(description="片段前 120 字")
 
 
+class ToolCall(BaseModel):
+    """Agent 本轮实际发起的工具调用，便于排查与前端展示。"""
+
+    name: str
+    arguments: dict = Field(default_factory=dict)
+
+
 class AskResponse(BaseModel):
     answer: str
     sources: list[Source] = Field(default_factory=list)
+    tool_calls: list[ToolCall] = Field(default_factory=list)
     status: str = Field(default="ok", description="ok / degraded（模型不可用已降级）")
     latency_ms: int
     token_in: int

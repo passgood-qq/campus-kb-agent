@@ -1,7 +1,7 @@
-"""LLM 调用封装：超时 + 指数退避重试 + 熔断。
+"""LLM 调用封装：超时 + 指数退避重试 + 熔断 + 工具调用（Function Calling）。
 
 异常分层：
-  LLMError        —— 调用了但失败（下游有响应/超时）
+  LLMError        —— 调用了但失败（下游报错 / 超时 / 返回空）
   LLMUnavailable  —— 熔断打开，压根没调用
 上游据此区分「降级」还是「报错」。
 """
@@ -32,7 +32,6 @@ def get_breaker() -> CircuitBreaker:
 
 
 def configure_breaker(failure_threshold: int, recovery_seconds: float) -> None:
-    """启动时按配置初始化熔断器。"""
     global _breaker
     _breaker = CircuitBreaker(
         failure_threshold=failure_threshold,
@@ -40,25 +39,30 @@ def configure_breaker(failure_threshold: int, recovery_seconds: float) -> None:
     )
 
 
-def _call_once(client: OpenAI, model: str, prompt: str, temperature: float = 0.3):
-    return client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=temperature,
-    )
+def _call_once(client: OpenAI, model: str, messages, temperature: float = 0.3,
+               tool_schemas: list[dict] | None = None):
+    kwargs = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+    }
+    if tool_schemas:
+        kwargs["tools"] = tool_schemas
+        kwargs["tool_choice"] = "auto"
+    return client.chat.completions.create(**kwargs)
 
 
-def _call_with_retry(client: OpenAI, model: str, prompt: str,
-                     attempts: int, base_delay: float = 0.5, sleep=time.sleep,
-                     temperature: float = 0.3):
+def _call_with_retry(client: OpenAI, model: str, messages, attempts: int,
+                     base_delay: float = 0.5, sleep=time.sleep,
+                     temperature: float = 0.3, tool_schemas: list[dict] | None = None):
     """指数退避重试：0.5s → 1s → 2s …
 
-    只对可恢复错误重试。参数化 sleep 是为了测试不必真的等。
+    sleep 参数化是为了测试不必真的等待。
     """
     last_exc: Exception | None = None
     for i in range(max(1, attempts)):
         try:
-            return _call_once(client, model, prompt, temperature)
+            return _call_once(client, model, messages, temperature, tool_schemas)
         except Exception as exc:  # SDK 各类异常统一在此重试
             last_exc = exc
             if i == attempts - 1:
@@ -70,8 +74,8 @@ def _call_with_retry(client: OpenAI, model: str, prompt: str,
     raise LLMError(f"重试 {attempts} 次仍失败：{type(last_exc).__name__}: {last_exc}") from last_exc
 
 
-def ask(question: str) -> tuple[str, int, int, int]:
-    """返回 (answer, token_in, token_out, latency_ms)。"""
+def chat_messages(messages, tool_schemas: list[dict] | None = None):
+    """底层对话调用，支持工具。返回 (message, token_in, token_out, latency_ms)。"""
     s = get_settings()
     if not s.llm_api_key:
         raise LLMError("未配置 LLM_API_KEY")
@@ -90,20 +94,30 @@ def ask(question: str) -> tuple[str, int, int, int]:
 
     started = time.perf_counter()
     try:
-        resp = _call_with_retry(client, s.llm_model, question, s.llm_max_attempts,
-                                base_delay=s.retry_base_delay, temperature=s.llm_temperature)
+        resp = _call_with_retry(
+            client, s.llm_model, messages, s.llm_max_attempts,
+            base_delay=s.retry_base_delay, temperature=s.llm_temperature,
+            tool_schemas=tool_schemas,
+        )
     except LLMError:
         breaker.record_failure()
         raise
     latency_ms = int((time.perf_counter() - started) * 1000)
 
-    answer = (resp.choices[0].message.content or "").strip()
-    if not answer:
+    msg = resp.choices[0].message
+    has_tool = bool(getattr(msg, "tool_calls", None))
+    if not has_tool and not (msg.content or "").strip():
         breaker.record_failure()
         raise LLMError("LLM 返回了空内容")
 
     breaker.record_success()
-    log.info("llm_ok latency=%dms token_in=%d token_out=%d state=%s",
+    log.info("llm_ok latency=%dms token_in=%d token_out=%d tools=%s state=%s",
              latency_ms, resp.usage.prompt_tokens, resp.usage.completion_tokens,
-             breaker.state.value)
-    return answer, resp.usage.prompt_tokens, resp.usage.completion_tokens, latency_ms
+             has_tool, breaker.state.value)
+    return msg, resp.usage.prompt_tokens, resp.usage.completion_tokens, latency_ms
+
+
+def ask(question: str) -> tuple[str, int, int, int]:
+    """单轮问答（无工具），保留给脚本与降级路径使用。"""
+    msg, tin, tout, latency = chat_messages([{"role": "user", "content": question}])
+    return (msg.content or "").strip(), tin, tout, latency
