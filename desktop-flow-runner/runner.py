@@ -56,7 +56,9 @@ def _require(step: dict, key: str) -> Any:
 def _exec_step(step: dict, backend) -> None:
     action = step.get("action")
     if action == "focus_window":
-        backend.find_window(_require(step, "title"), float(step.get("timeout", 5)))
+        # 支持 title（单个）或 titles（候选列表）：窗口标题随语言/文件名变化
+        titles = step.get("titles") or _require(step, "title")
+        backend.find_window(titles, float(step.get("timeout", 5)))
         backend.focus_window()
     elif action == "click":
         backend.click(step.get("x"), step.get("y"))

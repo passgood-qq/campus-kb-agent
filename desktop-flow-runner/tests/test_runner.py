@@ -86,6 +86,20 @@ def test_empty_steps_rejected():
         run_flow({"steps": []}, MockBackend())
 
 
+def test_focus_window_accepts_multiple_title_candidates():
+    """窗口标题随语言变化（'记事本' vs 'Notepad'），任一候选命中即可。"""
+    backend = MockBackend(windows=["neon-db-url.txt - Notepad"])
+    result = run_flow(
+        flow({"action": "focus_window", "titles": ["记事本", "Notepad"], "timeout": 2}),
+        backend,
+        sleep=NO_SLEEP,
+        clock=FAKE_CLOCK,
+        logger=logging.getLogger("test"),
+    )
+    assert result.ok is True
+    assert result.steps[0].attempts == 1
+
+
 def test_non_retryable_error_stops_immediately():
     class Fatal(MockBackend):
         def type_text(self, text):

@@ -3,14 +3,19 @@
   "retries": 2,
   "backoff": 0.5,
   "steps": [
-    { "action": "focus_window", "title": "记事本", "timeout": 8, "retries": 3 },
+    {
+      "action": "focus_window",
+      "titles": ["记事本", "Notepad"],
+      "timeout": 8,
+      "retries": 3
+    },
     { "action": "wait", "seconds": 0.5 },
     { "action": "type_text", "text": "RPA flow runner demo - step 1" },
     { "action": "press", "key": "enter" },
     { "action": "type_text", "text": "step 2: capture screenshot for evidence" },
     { "action": "screenshot", "path": "output/notepad_step2.png" },
     { "action": "press", "key": "enter" },
-    { "action": "type_text", "text": "done at " },
+    { "action": "type_text", "text": "done. this line was typed by the flow runner." },
     { "action": "screenshot", "path": "output/notepad_done.png" }
   ]
 }

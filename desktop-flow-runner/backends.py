@@ -5,8 +5,11 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
+
+log = logging.getLogger("backend")
 
 
 class BackendError(Exception):
@@ -36,17 +39,33 @@ class PyAutoGUIBackend:
         self._log = []
 
     # ------------------------------------------------------------------
-    def find_window(self, title: str, timeout: float) -> bool:
+    def find_window(self, titles, timeout: float) -> bool:
+        """按标题候选列表匹配窗口。
+
+        标题在不同语言/不同文件下会变（'记事本' vs 'Notepad'），
+        所以支持传多个候选，任一命中即可。
+        """
         import pygetwindow
+
+        if isinstance(titles, str):
+            titles = [titles]
+        candidates = [t.lower() for t in titles if t]
 
         deadline = time.time() + timeout
         while time.time() < deadline:
-            for w in pygetwindow.getWindowsWithTitle(title):
-                if w.visible:
+            for w in pygetwindow.getAllWindows():
+                title = (w.title or "").lower()
+                if title and any(c in title for c in candidates):
                     self._active = w
                     return True
             time.sleep(0.3)
-        raise BackendError(f"未找到窗口：{title}（超时 {timeout}s）", retryable=True)
+
+        # 找不到时把当前可见窗口打出来，便于排查（RPA 最常见的故障）
+        visible = [t for t in pygetwindow.getAllTitles() if t.strip()][:15]
+        log.warning("未找到窗口 %s，当前可见窗口：%s", titles, visible)
+        raise BackendError(
+            f"未找到窗口：{titles}（超时 {timeout}s）；可见窗口：{visible}", retryable=True
+        )
 
     def focus_window(self) -> None:
         try:
@@ -94,12 +113,14 @@ class MockBackend:
             if should_fail:
                 raise BackendError(f"mock 失败：{name}", retryable=True)
 
-    def find_window(self, title: str, timeout: float) -> bool:
-        self.calls.append(("find_window", (title, timeout), {}))
+    def find_window(self, titles, timeout: float) -> bool:
+        self.calls.append(("find_window", (titles, timeout), {}))
         self._maybe_fail("find_window")
-        if not any(title in w for w in self.windows):
-            raise BackendError(f"未找到窗口：{title}", retryable=True)
-        self._active = title
+        if isinstance(titles, str):
+            titles = [titles]
+        if not any(any(t.lower() in w.lower() for t in titles) for w in self.windows):
+            raise BackendError(f"未找到窗口：{titles}", retryable=True)
+        self._active = titles
         return True
 
     def focus_window(self) -> None:

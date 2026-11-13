@@ -82,8 +82,10 @@ def main() -> int:
         "steps": [s.__dict__ for s in result.steps],
     }
     if args.report:
-        Path(args.report).write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                                     encoding="utf-8")
+        report_path = Path(args.report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)  # 目录不存在时自动创建
+        report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                               encoding="utf-8")
         print(f"报告已写入：{args.report}")
 
     if not result.ok:
