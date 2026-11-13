@@ -1,0 +1,6 @@
+# 运行真机流程需要
+pyautogui>=0.9.54
+pygetwindow>=0.0.9
+
+# 运行测试
+pytest>=8.0.0
